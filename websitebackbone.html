@@ -30,7 +30,7 @@
   #stage { position: fixed; inset: 0; --split: 0.5; }
   #map { position: absolute; inset: 0; background: #cfd8dc; }
 
-  /* ---------- swipe divider and side tags ---------- */
+/* ---------- swipe divider and side tags ---------- */
   #divider {
     position: absolute; z-index: 900; top: 0; bottom: 0;
     left: calc(var(--split) * 100%); width: 44px; margin-left: -22px;
@@ -237,7 +237,7 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
 <script>
-/* ===== Edit these if your files change ===== */
+/* ===== path finder! ===== */
 const IMG_DIR = 'images/';                                   // folder holding the .webp files
 const BOUNDS = [[24.2901, 89.4534], [25.0850, 89.9810]];     // [[south, west], [north, east]]
 const PEAK_ISO = '2026-07-19';                               // reported flood peak (news reports)
@@ -310,7 +310,7 @@ function ensureSide(side, idx) {
   ov.addTo(map);
 }
 
-/* Clip the two radar panes at the divider: pane A shows left of it, pane B right of it.
+/* clip the two radar panes at the divider: pane A shows left of it, pane B right of it.
    Pane coordinates are map "layer points", so the clip box is worked out from the map corners. */
 function clip() {
   const paneA = map.getPane('radarA'), paneB = map.getPane('radarB');
