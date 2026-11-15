@@ -322,7 +322,7 @@
             <input type="radio" name="pol" id="polHH" value="hh" checked><label for="polHH">HH</label>
             <input type="radio" name="pol" id="polHV" value="hv"><label for="polHV">HV</label>
           </div>
-          <p class="help">HH: best water and land contrast. HV: responds to vegetation.</p>
+          <p class="help">HH: Horizontal-horitzontal for best water and land contrast. HV: Horizontal-vertical responds to vegetation.</p>
         </fieldset>
         <fieldset>
           <legend>Basemap</legend>
@@ -342,7 +342,7 @@
         <p class="muted" style="margin-top:6px">Dark: smooth surface, often open water. Bright: rough land, crops, buildings.</p>
         <div class="pair">
           <div class="pcard normal"><h3>Normal river</h3><p>Water stays in braided channels around sandbars. The land around it is bright.</p></div>
-          <div class="pcard flood"><h3>Flooding</h3><p>Dark areas spread across the floodplain. Channels merge and sandbars go under water.</p></div>
+          <div class="pcard flood"><h3>Flooding</h3><p>Dark areas spread across the floodplain. River's width widens.</p></div>
         </div>
         <button type="button" class="btn solid" id="demo">Compare 21 Jul with 6 Nov</button>
       </section>
@@ -363,10 +363,10 @@
         <p>This map visualizes the 2026 monsoon on a large braided river: how surface water spreads, how channels shift, and how the floodplain goes under and dries out again.</p>
         <p>The images are L-band Synthetic Aperture Radar from the NASA-ISRO <strong>NISAR</strong> mission, using its GCOV backscatter product. Radar sees through monsoon cloud, and smooth open water returns very little signal, so water reads as dark against brighter land.</p>
 
-        <h3>Why the Jamuna, and why not Kaziranga</h3>
+        <h3>Target for this study</h3>
         <p>The first target for this application was <strong>Kaziranga National Park and the Brahmaputra floodplain in Assam, India</strong>.</p>
         <p>Querying the 2026 NISAR GCOV archive across pre-monsoon and monsoon passes showed a problem: the satellite's orbital footprints over Kaziranga did not overlap enough from one date to the next across the target river reach. Without the same ground covered in every scene, a reliable before-and-after comparison could not be built.</p>
-        <p>Moving downstream to the <strong>Jamuna River in Bangladesh</strong> (Track 019, descending) gave a consistent, overlapping stack of seven scenes from June to November 2026. That stack captures the early-monsoon braided channels, the mid-July flood peak, and the post-monsoon recession of the water.</p>
+        <p>Moving downstream to the <strong>Jamuna River in Bangladesh</strong> (Track 019, descending) gave a consistent, overlapping stack of seven scenes from June to November 2026. That stack captures the early-monsoon braided channels, the mid-July flood peak, and the post-monsoon recession of the water. This is to show pictorially the cycle of the river during the monsoon. Potentially, live satellite updates could help government agencies and healthcare services with a satellite view of the affected area.</p>
 
         <dl class="facts">
           <div><dt>Sensor</dt><dd>NISAR L-band SAR, GCOV</dd></div>
@@ -413,13 +413,13 @@ const DATES = [
   { id: '20260721', label: '21 Jul', long: '21 July 2026',     iso: '2026-07-21', state: 'peak',   dark: null,
     text: 'Closest scene to the reported peak. Best flood view here.' },
   { id: '20260814', label: '14 Aug', long: '14 August 2026',   iso: '2026-08-14', state: 'after',  dark: null,
-    text: 'Compare with 21 Jul: how much dark area has gone?' },
+    text: 'Compare with 21 Jul: much of the dark area has gone' },
   { id: '20260907', label: '7 Sep',  long: '7 September 2026', iso: '2026-09-07', state: 'after',  dark: null,
     text: 'Late monsoon. Check which low areas are still dark.' },
   { id: '20261001', label: '1 Oct',  long: '1 October 2026',   iso: '2026-10-01', state: 'after',  dark: null,
     text: 'Monsoon over. Compare channel width with June.' },
   { id: '20261106', label: '6 Nov',  long: '6 November 2026',  iso: '2026-11-06', state: 'normal', dark: null,
-    text: "Best stand-in for the river's normal, low-water state." }
+    text: "The river's low-water state." }
 ];
 /* =========================================== */
 
