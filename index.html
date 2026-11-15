@@ -9,21 +9,21 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
 <style>
-  :root {
-    --fog: #EAF0F2;
-    --paper: #F8FBFC;
-    --ink: #14303D;
-    --ink-2: #4A6573;
-    --ink-3: #21495A;
-    --river: #1D6C8A;
-    --river-lt: #7FC3DC;
-    --silt: #7F5518;
-    --moss: #2F6B4B;
-    --rule: #B9C8CF;
-    --alert: #8A2B1C;
+:root {
+    --fog: #121212;        /* Dark panel/dock background */
+    --paper: #1C1C1E;      /* Card & input background */
+    --ink: #F5F5F7;        /* Primary light text */
+    --ink-2: #A1A1AA;      /* Secondary muted text */
+    --ink-3: #27272A;      /* Hover / active tab background */
+    --river: #FACC15;      /* Primary Yellow Accent (Left side, active sliders) */
+    --river-lt: #FDE047;   /* Bright Yellow (Tab focus/selected border) */
+    --silt: #EAB308;       /* Amber/Gold (Peak flood indicator) */
+    --moss: #CA8A04;       /* Muted Gold (Normal state chip) */
+    --rule: #333338;       /* Subtle dark borders */
+    --alert: #F87171;
     --rail-w: 68px;
-    --ui: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
-    --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+    --ui: 'Trebuchet MS', 'Lucida Grande', 'Lucida Sans Unicode', 'Lucida Sans', Tahoma, sans-serif;
+    --serif: 'Trebuchet MS', Georgia, serif;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
@@ -165,11 +165,14 @@
   ul.plain li { margin-bottom: 7px; }
 
   /* ---------- dock ---------- */
-  #dock {
-    position: absolute; z-index: 1100; left: calc(var(--rail-w) + 10px); right: 12px; bottom: 28px;
-    background: rgba(234, 240, 242, .96); border: 1px solid var(--rule); border-radius: 6px;
-    padding: 9px 14px 8px; box-shadow: 0 1px 3px rgba(20, 48, 61, .2);
-  }
+#dock {
+  position: absolute; z-index: 1100;
+  left: calc(50% + (var(--rail-w) / 2)); transform: translateX(-50%);
+  width: min(760px, calc(100vw - var(--rail-w) - 24px));
+  bottom: 24px;
+  background: rgba(18, 18, 18, 0.95); border: 1px solid var(--rule); border-radius: 8px;
+  padding: 10px 16px; box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
   .dock-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
   .dock-top .grow { flex: 1; }
   #singleLabel { font-weight: 700; font-size: 14px; }
