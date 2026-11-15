@@ -1,0 +1,674 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Jamuna floods 2026: NISAR radar</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Newsreader:opsz,wght@6..72,500;6..72,600&display=swap">
+<style>
+  :root {
+    --fog: #EAF0F2;
+    --paper: #F8FBFC;
+    --ink: #14303D;
+    --ink-2: #4A6573;
+    --ink-3: #21495A;
+    --river: #1D6C8A;
+    --river-lt: #7FC3DC;
+    --silt: #7F5518;
+    --moss: #2F6B4B;
+    --rule: #B9C8CF;
+    --alert: #8A2B1C;
+    --rail-w: 68px;
+    --ui: 'Atkinson Hyperlegible', system-ui, -apple-system, 'Segoe UI', sans-serif;
+    --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
+  }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { height: 100%; margin: 0; }
+  body { font-family: var(--ui); color: var(--ink); font-size: 15px; line-height: 1.45; }
+  :focus-visible { outline: 3px solid var(--river); outline-offset: 2px; }
+  p { margin: 0 0 10px; }
+
+  #stage { position: fixed; inset: 0; --split: 0.5; }
+  #map { position: absolute; inset: 0; background: #cfd8dc; }
+
+  /* ---------- title ---------- */
+  #title {
+    position: absolute; z-index: 1000; left: calc(var(--rail-w) + 12px); top: 12px;
+    background: rgba(234, 240, 242, .94); border: 1px solid var(--rule); border-radius: 6px; padding: 8px 12px;
+  }
+  #title h1 { font: 600 20px/1.1 var(--serif); margin: 0; }
+  #title p { margin: 2px 0 0; font-size: 12px; color: var(--ink-2); }
+
+  /* ---------- swipe divider ---------- */
+  #divider {
+    position: absolute; z-index: 900; top: 0; bottom: 0;
+    left: calc(var(--split) * 100%); width: 44px; margin-left: -22px;
+    cursor: ew-resize; touch-action: none;
+  }
+  #divider::before {
+    content: ''; position: absolute; left: 21px; top: 0; bottom: 0; width: 2px;
+    background: #fff; box-shadow: 0 0 0 1px rgba(20, 48, 61, .35), 0 0 8px rgba(20, 48, 61, .25);
+  }
+  #divider .grip {
+    position: absolute; left: 6px; top: 50%; width: 32px; height: 32px; margin-top: -16px;
+    border-radius: 50%; background: #fff; display: grid; place-items: center;
+    box-shadow: 0 0 0 1px rgba(20, 48, 61, .4), 0 1px 4px rgba(20, 48, 61, .3);
+    transition: transform .12s ease;
+  }
+  #divider:hover .grip, #divider.dragging .grip { transform: scale(1.12); }
+  #divider:focus-visible { outline: none; }
+  #divider:focus-visible .grip { outline: 3px solid var(--river); outline-offset: 3px; }
+  #hint {
+    position: absolute; left: 50%; top: calc(50% - 52px); transform: translateX(-50%);
+    background: var(--ink); color: #fff; font-size: 12px; padding: 3px 9px; border-radius: 4px;
+    white-space: nowrap; pointer-events: none; transition: opacity .4s ease;
+  }
+  #divider.touched #hint { opacity: 0; }
+
+  .tag {
+    position: absolute; z-index: 900; top: 14px; padding: 4px 9px; border-radius: 4px;
+    color: #fff; font-weight: 700; font-size: 13px; white-space: nowrap; pointer-events: none;
+  }
+  #tagA { right: calc((1 - var(--split)) * 100% + 14px); background: var(--river); }
+  #tagB { left: calc(var(--split) * 100% + 14px); background: var(--ink); }
+  .single #divider, .single #tagB { display: none; }
+  .single #tagA { right: auto; left: 50%; transform: translateX(-50%); }
+
+  /* ---------- tab rail ---------- */
+  #rail {
+    position: absolute; z-index: 1200; left: 0; top: 0; bottom: 0; width: var(--rail-w);
+    background: var(--ink); display: flex; flex-direction: column; padding-top: 6px;
+  }
+  #rail button {
+    appearance: none; border: 0; background: transparent; color: #CFE0E6; cursor: pointer;
+    font: 400 12px var(--ui); padding: 12px 0 10px; display: flex; flex-direction: column; align-items: center; gap: 4px;
+  }
+  #rail button svg { width: 24px; height: 24px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; }
+  #rail button:hover { background: var(--ink-3); color: #fff; }
+  #rail button[aria-selected=true] { background: var(--ink-3); color: #fff; box-shadow: inset 3px 0 0 var(--river-lt); }
+  #rail button:focus-visible { outline: 3px solid var(--river-lt); outline-offset: -3px; }
+
+  /* ---------- slide-in drawer ---------- */
+  #drawer {
+    position: absolute; z-index: 1150; left: calc(var(--rail-w) + 10px); top: 76px; bottom: 232px;
+    width: min(350px, calc(100vw - var(--rail-w) - 20px));
+    background: rgba(234, 240, 242, .98); border: 1px solid var(--rule); border-radius: 6px;
+    box-shadow: 0 2px 10px rgba(20, 48, 61, .25); display: flex; flex-direction: column;
+    visibility: hidden; opacity: 0; transform: translateX(calc(-100% - var(--rail-w) - 20px));
+    transition: transform .26s cubic-bezier(.2, .8, .2, 1), opacity .2s ease, visibility 0s linear .26s;
+  }
+  #drawer.open { visibility: visible; opacity: 1; transform: none; transition-delay: 0s; }
+  .drawer-head { display: flex; justify-content: space-between; align-items: center; padding: 12px 14px 8px; border-bottom: 1px solid var(--rule); }
+  .drawer-head h2 { font: 600 19px/1.2 var(--serif); margin: 0; }
+  #drawerClose { font: inherit; font-size: 13px; background: none; border: 0; color: var(--river); text-decoration: underline; cursor: pointer; padding: 4px; }
+  .drawer-body { overflow: auto; padding: 12px 14px 16px; }
+  .drawer-body h3 { font-size: 14px; margin: 14px 0 4px; }
+  .muted { color: var(--ink-2); font-size: 13px; }
+
+  fieldset { border: 0; margin: 0 0 14px; padding: 0; min-width: 0; }
+  legend, .field-label { font-weight: 700; font-size: 14px; padding: 0; margin-bottom: 5px; }
+  .help { font-size: 13px; color: var(--ink-2); margin: 6px 0 0; }
+  .row { display: flex; justify-content: space-between; align-items: baseline; }
+  input[type=range] { width: 100%; accent-color: var(--river); }
+
+  .seg { position: relative; display: flex; border: 1px solid var(--rule); border-radius: 5px; overflow: hidden; background: var(--paper); }
+  .seg input { position: absolute; opacity: 0; pointer-events: none; }
+  .seg label { flex: 1; text-align: center; padding: 7px 8px; cursor: pointer; font-size: 14px; border-left: 1px solid var(--rule); white-space: nowrap; }
+  .seg label:first-of-type { border-left: 0; }
+  .seg input:checked + label { background: var(--ink); color: #fff; }
+  .seg input:focus-visible + label { outline: 3px solid var(--river); outline-offset: -3px; }
+  .seg.compact label { padding: 6px 11px; font-size: 13px; }
+  #sideSeg input#sideA:checked + label { background: var(--river); }
+  #sideSeg input#sideB:checked + label { background: var(--ink); }
+
+  /* ---------- chips, cards ---------- */
+  .chip { font-size: 12px; font-weight: 700; padding: 1px 9px; border-radius: 10px; color: #fff; white-space: nowrap; }
+  .s-before { background: var(--ink-2); }
+  .s-peak { background: var(--silt); }
+  .s-after { background: var(--river); }
+  .s-normal { background: var(--moss); }
+
+  #dateList { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+  .card { background: var(--paper); border: 1px solid var(--rule); border-left-width: 5px; border-radius: 5px; padding: 8px 10px; }
+  .card.is-a { border-left-color: var(--river); }
+  .card.is-b { border-left-color: var(--ink); }
+  .card.is-a.is-b { border-left-color: var(--ink); }
+  .card-top { display: flex; align-items: center; gap: 8px; }
+  .card p { margin: 3px 0 0; font-size: 13px; }
+  .card .days { color: var(--ink-2); font-size: 12px; }
+  .bar { height: 6px; background: var(--rule); border-radius: 3px; margin-top: 6px; overflow: hidden; }
+  .bar span { display: block; height: 100%; background: var(--river); }
+  .assign { display: flex; gap: 6px; margin-top: 8px; }
+  .mini { font: inherit; font-size: 12px; padding: 3px 10px; border-radius: 4px; border: 1px solid var(--ink-2); background: var(--paper); color: var(--ink); cursor: pointer; }
+  .mini[aria-pressed=true] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  .mini.a[aria-pressed=true] { background: var(--river); border-color: var(--river); }
+
+  .legend { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700; }
+  .grad { flex: 1; height: 12px; border-radius: 6px; border: 1px solid var(--rule); background: linear-gradient(90deg, #0b0b0b, #f2f2f2); }
+  .pair { display: grid; gap: 8px; margin-top: 10px; }
+  .pcard { background: var(--paper); border: 1px solid var(--rule); border-radius: 5px; padding: 8px 10px; }
+  .pcard h3 { margin: 0 0 2px; }
+  .pcard p { margin: 0; font-size: 13px; }
+  .pcard.normal { border-left: 5px solid var(--moss); }
+  .pcard.flood { border-left: 5px solid var(--silt); }
+  .btn {
+    font: inherit; font-size: 14px; padding: 7px 14px; border-radius: 5px; cursor: pointer;
+    border: 1px solid var(--ink); background: var(--paper); color: var(--ink);
+  }
+  .btn[aria-pressed=true] { background: var(--ink); color: #fff; }
+  .btn.solid { background: var(--ink); color: #fff; margin-top: 12px; }
+  ul.plain { margin: 0; padding-left: 18px; font-size: 13px; }
+  ul.plain li { margin-bottom: 7px; }
+
+  /* ---------- dock ---------- */
+  #dock {
+    position: absolute; z-index: 1100; left: calc(var(--rail-w) + 10px); right: 12px; bottom: 28px;
+    background: rgba(234, 240, 242, .96); border: 1px solid var(--rule); border-radius: 6px;
+    padding: 9px 14px 8px; box-shadow: 0 1px 3px rgba(20, 48, 61, .2);
+  }
+  .dock-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .dock-top .grow { flex: 1; }
+  #singleLabel { font-weight: 700; font-size: 14px; }
+
+  .tl { padding: 0 28px; }
+  .tl-inner { position: relative; height: 82px; }
+  .tl-track { position: absolute; left: 0; right: 0; top: 46px; height: 2px; background: var(--rule); }
+  .tl-peak { position: absolute; top: 14px; bottom: 6px; border-left: 1px dashed var(--silt); pointer-events: none; }
+  .tl-peak span { position: absolute; top: -14px; left: 4px; font-size: 12px; color: var(--silt); white-space: nowrap; }
+  .tl-dot {
+    position: absolute; top: 37px; width: 20px; height: 20px; margin-left: -10px; padding: 0;
+    border-radius: 50%; border: 2px solid var(--ink-2); background: var(--paper); cursor: pointer;
+    font: 700 9px/1 var(--ui); color: #fff;
+  }
+  .tl-dot[data-tag]::before { content: attr(data-tag); }
+  .tl-dot.on-a { background: var(--river); border-color: var(--river); }
+  .tl-dot.on-b { background: var(--ink); border-color: var(--ink); }
+  .tl-dot.on-a.on-b { background: linear-gradient(90deg, var(--river) 50%, var(--ink) 50%); border-color: var(--ink); }
+  .lbl { position: absolute; left: 50%; transform: translateX(-50%); font: 400 12px var(--ui); color: var(--ink-2); white-space: nowrap; pointer-events: none; }
+  .lbl.up { bottom: calc(100% + 3px); }
+  .lbl.down { top: calc(100% + 3px); }
+  .tl-dot.on-a .lbl, .tl-dot.on-b .lbl { color: var(--ink); font-weight: 700; }
+
+  .info { list-style: none; margin: 2px 0 0; padding: 0; font-size: 13px; }
+  .info li { display: flex; align-items: center; gap: 8px; padding: 2px 0; }
+  .info .txt { color: var(--ink-2); }
+  .sq { width: 10px; height: 10px; border-radius: 2px; flex: none; }
+  .sq.a { background: var(--river); }
+  .sq.b { background: var(--ink); }
+  #status { margin: 6px 0 0; font-size: 13px; color: var(--alert); font-weight: 700; }
+
+  .leaflet-control-attribution { font-size: 11px; }
+
+  @media (max-width: 759px) {
+    :root { --rail-w: 0px; }
+    #rail { right: 0; bottom: auto; width: auto; height: 52px; flex-direction: row; padding-top: 0; }
+    #rail button { flex: 1; padding: 7px 0 5px; }
+    #rail button[aria-selected=true] { box-shadow: inset 0 -3px 0 var(--river-lt); }
+    #title { left: 8px; top: 60px; padding: 6px 10px; }
+    #title h1 { font-size: 17px; }
+    #title p { display: none; }
+    #drawer { left: 8px; right: 8px; width: auto; top: 58px; bottom: 262px; }
+    #dock { left: 8px; right: 8px; bottom: 26px; }
+    .tl { padding: 0 22px; }
+    .tag { top: 62px; }
+    .single #tagA { top: 62px; }
+    .info .txt { display: none; }
+    .leaflet-top { top: 52px; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <div id="map" aria-label="Map of the Jamuna river with NISAR radar images"></div>
+
+  <header id="title">
+    <h1>Jamuna floods, 2026</h1>
+    <p>NISAR radar, Bangladesh</p>
+  </header>
+
+  <div id="tagA" class="tag"></div>
+  <div id="tagB" class="tag"></div>
+  <div id="divider" role="slider" tabindex="0" aria-label="Comparison divider" aria-orientation="horizontal"
+       aria-valuemin="4" aria-valuemax="96" aria-valuenow="50">
+    <div id="hint">Drag to compare</div>
+    <div class="grip">
+      <svg width="20" height="20" viewBox="0 0 22 22" aria-hidden="true">
+        <path d="M8 5l-6 6 6 6M14 5l6 6-6 6" fill="none" stroke="#14303D" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </div>
+  </div>
+
+  <!-- tab rail: each tab slides a panel in over the map -->
+  <nav id="rail" role="tablist" aria-label="Panels">
+    <button type="button" role="tab" id="tab-dates" data-pane="dates" aria-controls="drawer" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/></svg>Dates</button>
+    <button type="button" role="tab" id="tab-layers" data-pane="layers" aria-controls="drawer" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3l9 5-9 5-9-5 9-5z"/><path d="M3 13l9 5 9-5"/></svg>Layers</button>
+    <button type="button" role="tab" id="tab-guide" data-pane="guide" aria-controls="drawer" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3c4 5 6 8 6 11a6 6 0 0 1-12 0c0-3 2-6 6-11z"/></svg>Guide</button>
+    <button type="button" role="tab" id="tab-data" data-pane="data" aria-controls="drawer" aria-selected="false">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.01"/></svg>Data</button>
+  </nav>
+
+  <aside id="drawer" role="tabpanel" aria-labelledby="drawerTitle" aria-hidden="true" inert>
+    <div class="drawer-head">
+      <h2 id="drawerTitle">Dates</h2>
+      <button type="button" id="drawerClose">Close</button>
+    </div>
+    <div class="drawer-body">
+
+      <section id="pane-dates" hidden>
+        <ul id="dateList"></ul>
+      </section>
+
+      <section id="pane-layers" hidden>
+        <fieldset>
+          <legend>Polarization</legend>
+          <div class="seg">
+            <input type="radio" name="pol" id="polHH" value="hh" checked><label for="polHH">HH</label>
+            <input type="radio" name="pol" id="polHV" value="hv"><label for="polHV">HV</label>
+          </div>
+          <p class="help">HH: best water and land contrast. HV: responds to vegetation.</p>
+        </fieldset>
+        <fieldset>
+          <legend>Basemap</legend>
+          <div class="seg">
+            <input type="radio" name="base" id="baseSat" value="sat" checked><label for="baseSat">Satellite</label>
+            <input type="radio" name="base" id="baseStreets" value="streets"><label for="baseStreets">Streets</label>
+          </div>
+        </fieldset>
+        <div>
+          <div class="row"><label class="field-label" for="opacity">Radar opacity</label><output id="opacityOut" for="opacity">100%</output></div>
+          <input type="range" id="opacity" min="0" max="100" value="100">
+        </div>
+      </section>
+
+      <section id="pane-guide" hidden>
+        <div class="legend"><span>Dark</span><i class="grad"></i><span>Bright</span></div>
+        <p class="muted" style="margin-top:6px">Dark: smooth surface, often open water. Bright: rough land, crops, buildings.</p>
+        <div class="pair">
+          <div class="pcard normal"><h3>Normal river</h3><p>Water stays in braided channels around sandbars. The land around it is bright.</p></div>
+          <div class="pcard flood"><h3>Flooding</h3><p>Dark areas spread across the floodplain. Channels merge and sandbars go under water.</p></div>
+        </div>
+        <button type="button" class="btn solid" id="demo">Compare 21 Jul with 6 Nov</button>
+      </section>
+
+      <section id="pane-data" hidden>
+        <ul class="plain">
+          <li>NISAR L-band radar, GCOV product, track 019 (descending pass).</li>
+          <li>Seven scenes, 27 Jun to 6 Nov 2026. None between 21 Jul and 14 Aug.</li>
+          <li>Greyscale decibels, averaged to 40 m and cropped to the area all scenes share.</li>
+          <li>Dark is a visual guide, not a measured flood area. Wind can brighten water and dry sand can look dark.</li>
+          <li>The 19 Jul peak date comes from news reports.</li>
+        </ul>
+        <p class="muted" style="margin-top:12px">Contains modified NISAR data (NASA/ISRO), produced by NASA JPL and distributed by the ASF DAAC. Basemaps: Esri, OpenStreetMap contributors.</p>
+      </section>
+
+    </div>
+  </aside>
+
+  <section id="dock" aria-label="Date controls">
+    <div class="dock-top">
+      <div class="seg compact" id="modeSeg">
+        <input type="radio" name="mode" id="modeSwipe" value="swipe" checked><label for="modeSwipe">Compare</label>
+        <input type="radio" name="mode" id="modeSingle" value="single"><label for="modeSingle">One date</label>
+      </div>
+      <div class="seg compact" id="sideSeg" aria-label="Choose which side the next date applies to">
+        <input type="radio" name="side" id="sideA" value="a" checked><label for="sideA" id="sideALbl"></label>
+        <input type="radio" name="side" id="sideB" value="b"><label for="sideB" id="sideBLbl"></label>
+      </div>
+      <span id="singleLabel" hidden></span>
+      <span class="grow"></span>
+      <button type="button" class="btn" id="play" aria-pressed="false">Play</button>
+    </div>
+    <div class="tl"><div class="tl-inner" id="timeline"></div></div>
+    <ul class="info" id="dockInfo"></ul>
+    <p id="status" role="status" hidden></p>
+  </section>
+</div>
+
+<noscript><p style="position:fixed;top:0;left:0;right:0;z-index:2000;background:#fff;padding:12px">This map needs JavaScript.</p></noscript>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script>
+/* ===== Edit these if your files change ===== */
+const IMG_DIR = 'images/';                                   // folder holding the .webp files
+const BOUNDS = [[24.2901, 89.4534], [25.0850, 89.9810]];     // [[south, west], [north, east]]
+const PEAK_ISO = '2026-07-19';                               // reported flood peak (news reports)
+
+/* state: before | peak | after | normal.  dark: % of the area that is dark (likely water), or null. */
+const STATES = { before: 'Before peak', peak: 'Near peak', after: 'After peak', normal: 'Normal state' };
+const DATES = [
+  { id: '20260627', label: '27 Jun', long: '27 June 2026',     iso: '2026-06-27', state: 'before', dark: null,
+    text: 'Early monsoon. Note the main channels and sandbars.' },
+  { id: '20260709', label: '9 Jul',  long: '9 July 2026',      iso: '2026-07-09', state: 'before', dark: null,
+    text: 'Check whether dark areas are spreading beyond the channels.' },
+  { id: '20260721', label: '21 Jul', long: '21 July 2026',     iso: '2026-07-21', state: 'peak',   dark: null,
+    text: 'Closest scene to the reported peak. Best flood view here.' },
+  { id: '20260814', label: '14 Aug', long: '14 August 2026',   iso: '2026-08-14', state: 'after',  dark: null,
+    text: 'Compare with 21 Jul: how much dark area has gone?' },
+  { id: '20260907', label: '7 Sep',  long: '7 September 2026', iso: '2026-09-07', state: 'after',  dark: null,
+    text: 'Late monsoon. Check which low areas are still dark.' },
+  { id: '20261001', label: '1 Oct',  long: '1 October 2026',   iso: '2026-10-01', state: 'after',  dark: null,
+    text: 'Monsoon over. Compare channel width with June.' },
+  { id: '20261106', label: '6 Nov',  long: '6 November 2026',  iso: '2026-11-06', state: 'normal', dark: null,
+    text: "Best stand-in for the river's normal, low-water state." }
+];
+/* =========================================== */
+
+const $ = (s) => document.querySelector(s);
+const utc = (iso) => Date.parse(iso + 'T00:00:00Z');
+const clamp = (v, lo, hi) => Math.min(Math.max(v, lo), hi);
+function daysText(n) {
+  const a = Math.abs(n);
+  return n === 0 ? 'On the reported peak' : a + (a === 1 ? ' day ' : ' days ') + (n < 0 ? 'before' : 'after') + ' the reported peak';
+}
+const daysFromPeak = (i) => Math.round((utc(DATES[i].iso) - utc(PEAK_ISO)) / 864e5);
+
+const state = { mode: 'swipe', pol: 'hh', base: 'sat', opacity: 1, a: 2, b: 6, side: 'a', split: 0.5, playing: false };
+
+/* ---------- map ---------- */
+const map = L.map('map', { zoomControl: false, zoomAnimation: false, minZoom: 6, maxZoom: 15, attributionControl: true });
+map.attributionControl.setPrefix(false);
+L.control.zoom({ position: 'topright' }).addTo(map);
+
+const baseLayers = {
+  sat: L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}',
+        { maxZoom: 18, attribution: 'Esri, Maxar, Earthstar Geographics' }),
+  streets: L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',
+        { maxZoom: 19, attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors' })
+};
+baseLayers.sat.addTo(map);
+
+map.createPane('radarA'); map.getPane('radarA').style.zIndex = 250; map.getPane('radarA').style.pointerEvents = 'none';
+map.createPane('radarB'); map.getPane('radarB').style.zIndex = 251; map.getPane('radarB').style.pointerEvents = 'none';
+
+const wide = window.innerWidth >= 760;
+map.fitBounds(BOUNDS, {
+  paddingTopLeft: [wide ? 90 : 8, wide ? 12 : 110],
+  paddingBottomRight: [12, wide ? 240 : 290]
+});
+
+/* ---------- radar overlays ---------- */
+const stack = { a: [], b: [] };      // overlays currently on the map for each side
+const loaded = { a: null, b: null }; // which image each side is showing
+
+function showStatus(msg) { const s = $('#status'); s.textContent = msg; s.hidden = !msg; }
+
+function ensureSide(side, idx) {
+  const key = idx == null ? null : DATES[idx].id + '_' + state.pol;
+  if (loaded[side] === key) return;
+  loaded[side] = key;
+  if (key === null) { stack[side].forEach((l) => map.removeLayer(l)); stack[side] = []; return; }
+  const url = IMG_DIR + key + '.webp';
+  const ov = L.imageOverlay(url, BOUNDS, {
+    pane: side === 'a' ? 'radarA' : 'radarB', opacity: state.opacity, interactive: false,
+    alt: 'NISAR radar backscatter, ' + DATES[idx].long + ', ' + state.pol.toUpperCase()
+  });
+  stack[side].push(ov);
+  ov.once('load', () => {
+    const i = stack[side].indexOf(ov);
+    if (i < 0) return;
+    stack[side].slice(0, i).forEach((l) => map.removeLayer(l));
+    stack[side] = stack[side].slice(i);
+    showStatus('');
+    clip();
+  });
+  ov.once('error', () => showStatus("Couldn't load " + url + '. Check that the images folder sits next to the page.'));
+  ov.addTo(map);
+}
+
+function applyOpacity() { ['a', 'b'].forEach((s) => stack[s].forEach((l) => l.setOpacity(state.opacity))); }
+
+/* Clip the two radar panes at the divider: pane A shows left of it, pane B right of it.
+   Pane coordinates are map "layer points", so the clip box is worked out from the map corners. */
+function clip() {
+  const paneA = map.getPane('radarA'), paneB = map.getPane('radarB');
+  if (state.mode !== 'swipe') { paneA.style.clip = ''; paneB.style.clip = ''; return; }
+  const size = map.getSize();
+  const nw = map.containerPointToLayerPoint([0, 0]);
+  const se = map.containerPointToLayerPoint(size);
+  const x = nw.x + state.split * size.x;
+  paneA.style.clip = 'rect(' + nw.y + 'px, ' + x + 'px, ' + se.y + 'px, ' + nw.x + 'px)';
+  paneB.style.clip = 'rect(' + nw.y + 'px, ' + se.x + 'px, ' + se.y + 'px, ' + x + 'px)';
+}
+let clipQueued = false;
+function queueClip() { if (clipQueued) return; clipQueued = true; requestAnimationFrame(() => { clipQueued = false; clip(); }); }
+map.on('move zoom resize viewreset moveend zoomend', queueClip);
+
+/* ---------- divider ---------- */
+const stage = $('#stage'), divider = $('#divider');
+function setSplit(v) {
+  state.split = clamp(v, 0.04, 0.96);
+  stage.style.setProperty('--split', state.split);
+  divider.setAttribute('aria-valuenow', Math.round(state.split * 100));
+  clip();
+}
+function touched() { divider.classList.add('touched'); }
+let dragging = false;
+divider.addEventListener('pointerdown', (e) => {
+  dragging = true; divider.classList.add('dragging'); touched();
+  divider.setPointerCapture(e.pointerId); e.preventDefault();
+});
+divider.addEventListener('pointermove', (e) => {
+  if (!dragging) return;
+  const m = map.getContainer().getBoundingClientRect();
+  setSplit((e.clientX - m.left) / m.width);
+});
+['pointerup', 'pointercancel'].forEach((t) => divider.addEventListener(t, () => { dragging = false; divider.classList.remove('dragging'); }));
+divider.addEventListener('keydown', (e) => {
+  const step = e.shiftKey ? 0.1 : 0.02;
+  if (e.key === 'ArrowLeft') { setSplit(state.split - step); touched(); e.preventDefault(); }
+  if (e.key === 'ArrowRight') { setSplit(state.split + step); touched(); e.preventDefault(); }
+  if (e.key === 'Home') { setSplit(0); e.preventDefault(); }
+  if (e.key === 'End') { setSplit(1); e.preventDefault(); }
+});
+
+/* ---------- timeline (dates drawn to scale) ---------- */
+const t0 = utc(DATES[0].iso), t1 = utc(DATES[DATES.length - 1].iso);
+const pct = (iso) => ((utc(iso) - t0) / (t1 - t0)) * 100;
+const timeline = $('#timeline');
+const peak = document.createElement('div');
+peak.className = 'tl-peak';
+peak.style.left = pct(PEAK_ISO) + '%';
+peak.innerHTML = '<span>Reported peak, 19 Jul</span>';
+timeline.append(Object.assign(document.createElement('div'), { className: 'tl-track' }), peak);
+
+function pick(i) { if (state.mode === 'swipe') state[state.side] = i; else state.a = i; render(); }
+const dots = DATES.map((d, i) => {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'tl-dot';
+  b.style.left = pct(d.iso) + '%';
+  b.innerHTML = '<span class="lbl ' + (i % 2 ? 'up' : 'down') + '" aria-hidden="true">' + d.label + '</span>';
+  b.addEventListener('click', () => pick(i));
+  timeline.append(b);
+  return b;
+});
+
+/* ---------- dates tab: one card per date ---------- */
+const list = $('#dateList');
+const cards = DATES.map((d, i) => {
+  const li = document.createElement('li');
+  li.className = 'card';
+  li.innerHTML =
+    '<div class="card-top"><strong>' + d.label + '</strong><span class="chip s-' + d.state + '">' + STATES[d.state] + '</span></div>' +
+    '<p class="days">' + daysText(daysFromPeak(i)) + '</p>' +
+    '<p>' + d.text + '</p>' +
+    (d.dark != null
+      ? '<div class="bar" role="img" aria-label="' + d.dark + '% dark"><span style="width:' + d.dark + '%"></span></div>' +
+        '<p class="days">' + d.dark + '% of the area is dark (likely water)</p>'
+      : '') +
+    '<div class="assign">' +
+      '<button type="button" class="mini a" data-i="' + i + '" data-side="a">Left</button>' +
+      '<button type="button" class="mini" data-i="' + i + '" data-side="b">Right</button>' +
+      '<button type="button" class="mini" data-i="' + i + '" data-side="show">Show</button>' +
+    '</div>';
+  list.append(li);
+  return {
+    li,
+    btnA: li.querySelector('[data-side=a]'),
+    btnB: li.querySelector('[data-side=b]'),
+    btnShow: li.querySelector('[data-side=show]')
+  };
+});
+list.addEventListener('click', (e) => {
+  const b = e.target.closest('button[data-side]');
+  if (!b) return;
+  const i = Number(b.dataset.i);
+  if (b.dataset.side === 'b') state.b = i; else state.a = i;
+  render();
+});
+
+/* ---------- render ---------- */
+function render() {
+  const swipe = state.mode === 'swipe';
+  const pol = state.pol.toUpperCase();
+  stage.classList.toggle('single', !swipe);
+
+  ensureSide('a', state.a);
+  ensureSide('b', swipe ? state.b : null);
+  applyOpacity();
+
+  $('#tagA').textContent = DATES[state.a].label + ' ' + pol;
+  $('#tagB').textContent = DATES[state.b].label + ' ' + pol;
+  $('#sideALbl').textContent = 'Left: ' + DATES[state.a].label;
+  $('#sideBLbl').textContent = 'Right: ' + DATES[state.b].label;
+  $('#sideSeg').hidden = !swipe;
+  $('#singleLabel').hidden = swipe;
+  $('#singleLabel').textContent = 'Showing ' + DATES[state.a].label + ' ' + pol;
+
+  dots.forEach((b, i) => {
+    const onA = state.a === i, onB = swipe && state.b === i;
+    b.classList.toggle('on-a', onA);
+    b.classList.toggle('on-b', onB);
+    const tag = swipe ? (onA ? 'L' : '') + (onB ? 'R' : '') : '';
+    if (tag) b.dataset.tag = tag; else delete b.dataset.tag;
+    const sel = onA ? (swipe ? ', left side' : ', selected') : onB ? ', right side' : '';
+    b.setAttribute('aria-label', DATES[i].long + sel);
+    b.setAttribute('aria-pressed', onA || onB ? 'true' : 'false');
+  });
+
+  const info = $('#dockInfo');
+  info.innerHTML = '';
+  (swipe ? [['a', state.a], ['b', state.b]] : [[null, state.a]]).forEach(([side, i]) => {
+    const d = DATES[i];
+    const li = document.createElement('li');
+    if (side) { const sq = document.createElement('span'); sq.className = 'sq ' + side; li.append(sq); }
+    const name = document.createElement('strong'); name.textContent = d.label;
+    const chip = document.createElement('span'); chip.className = 'chip s-' + d.state; chip.textContent = STATES[d.state];
+    const txt = document.createElement('span'); txt.className = 'txt';
+    txt.textContent = d.text + (d.dark != null ? ' ' + d.dark + '% dark.' : '');
+    li.append(name, chip, txt);
+    info.append(li);
+  });
+
+  cards.forEach((c, i) => {
+    c.li.classList.toggle('is-a', state.a === i);
+    c.li.classList.toggle('is-b', swipe && state.b === i);
+    c.btnA.hidden = !swipe; c.btnB.hidden = !swipe; c.btnShow.hidden = swipe;
+    c.btnA.setAttribute('aria-pressed', String(state.a === i));
+    c.btnB.setAttribute('aria-pressed', String(state.b === i));
+    c.btnShow.setAttribute('aria-pressed', String(state.a === i));
+  });
+  queueClip();
+}
+
+/* ---------- slide-in tabs ---------- */
+const rail = $('#rail'), drawer = $('#drawer');
+const tabs = Array.from(rail.querySelectorAll('[role=tab]'));
+const panes = { dates: $('#pane-dates'), layers: $('#pane-layers'), guide: $('#pane-guide'), data: $('#pane-data') };
+const PANE_TITLES = { dates: 'River state by date', layers: 'Map layers', guide: 'Reading the radar', data: 'About the data' };
+let openPane = null;
+
+function openDrawer(name) {
+  openPane = name;
+  Object.keys(panes).forEach((k) => { panes[k].hidden = k !== name; });
+  tabs.forEach((t) => t.setAttribute('aria-selected', String(t.dataset.pane === name)));
+  $('#drawerTitle').textContent = PANE_TITLES[name];
+  drawer.inert = false;
+  drawer.setAttribute('aria-hidden', 'false');
+  drawer.classList.add('open');
+}
+function closeDrawer(returnFocus) {
+  const prev = openPane;
+  openPane = null;
+  drawer.classList.remove('open');
+  drawer.inert = true;
+  drawer.setAttribute('aria-hidden', 'true');
+  tabs.forEach((t) => t.setAttribute('aria-selected', 'false'));
+  if (returnFocus && prev) rail.querySelector('[data-pane=' + prev + ']').focus();
+}
+tabs.forEach((t) => t.addEventListener('click', () => {
+  if (openPane === t.dataset.pane) closeDrawer(false); else openDrawer(t.dataset.pane);
+}));
+$('#drawerClose').addEventListener('click', () => closeDrawer(true));
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && openPane) closeDrawer(true); });
+rail.addEventListener('keydown', (e) => {
+  const i = tabs.indexOf(document.activeElement);
+  const d = { ArrowDown: 1, ArrowRight: 1, ArrowUp: -1, ArrowLeft: -1 }[e.key];
+  if (i < 0 || !d) return;
+  tabs[(i + d + tabs.length) % tabs.length].focus();
+  e.preventDefault();
+});
+
+/* ---------- controls ---------- */
+document.querySelectorAll('input[name=mode]').forEach((r) => r.addEventListener('change', (e) => {
+  state.mode = e.target.value;
+  if (state.mode === 'swipe') stopPlay();
+  render();
+}));
+document.querySelectorAll('input[name=pol]').forEach((r) => r.addEventListener('change', (e) => { state.pol = e.target.value; render(); }));
+document.querySelectorAll('input[name=side]').forEach((r) => r.addEventListener('change', (e) => { state.side = e.target.value; }));
+document.querySelectorAll('input[name=base]').forEach((r) => r.addEventListener('change', (e) => {
+  map.removeLayer(baseLayers[state.base]);
+  state.base = e.target.value;
+  baseLayers[state.base].addTo(map);
+}));
+$('#opacity').addEventListener('input', (e) => {
+  state.opacity = e.target.value / 100;
+  $('#opacityOut').textContent = e.target.value + '%';
+  applyOpacity();
+});
+$('#demo').addEventListener('click', () => {
+  stopPlay();
+  state.mode = 'swipe';
+  $('#modeSwipe').checked = true;
+  state.a = 2; state.b = 6;
+  closeDrawer(false);
+  render();
+});
+
+/* ---------- play ---------- */
+let timer = null;
+function stopPlay() {
+  state.playing = false;
+  clearInterval(timer);
+  timer = null;
+  $('#play').setAttribute('aria-pressed', 'false');
+  $('#play').textContent = 'Play';
+}
+$('#play').addEventListener('click', () => {
+  if (state.playing) { stopPlay(); return; }
+  state.playing = true;
+  state.mode = 'single';
+  $('#modeSingle').checked = true;
+  $('#play').setAttribute('aria-pressed', 'true');
+  $('#play').textContent = 'Pause';
+  render();
+  timer = setInterval(() => { state.a = (state.a + 1) % DATES.length; render(); }, 1500);
+});
+
+/* start with the divider over the middle of the river image */
+const c0 = map.latLngToContainerPoint(L.latLngBounds(BOUNDS).getCenter());
+setSplit(c0.x / map.getSize().x);
+render();
+</script>
+</body>
+</html>
